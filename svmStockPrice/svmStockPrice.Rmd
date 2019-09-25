@@ -1,0 +1,186 @@
+---
+title: "SVM project"
+author: "MGMT6770"
+date: "9/23/2019"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+# Introduction
+This is an implementation of a support vector machine designed to identify short-term stock price changes, based on previous stock parameters: open, low, high, close, volume
+
+## Stock selected for this exercise:
+
+<!-- put your justification/choice here: !-->
+
+
+```{r setup, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+```
+
+## get data:
+
+```{r}
+slpData = read.csv('SLPtrimmed.csv')
+attach(slpData)
+# set up data frame
+slpDataFrame = data.frame(open=price.open, high=price.high,
+        low=price.low, close=price.adjusted,volume= volume/10000, avg_change=avg_change, change = changeCategory )
+head(slpDataFrame)
+remove(slpData)
+
+```
+
+```{r}
+plot(slpDataFrame)
+```
+
+
+## classification model, categorical response
+
+### traditional interface:
+```{r}
+x <- subset(slpDataFrame, select = -change)
+y <- slpDataFrame$change
+model1 <- svm(x, y) 
+
+print(model1)
+summary(model1)
+```
+
+
+
+## how well did the model fit?
+
+```{r}
+pred <- predict(model1, x)
+
+# Check accuracy:
+table(pred, y)
+```
+
+## decision values
+
+```{r}
+# compute decision values and probabilities:
+pred <- predict(model1, x, decision.values = TRUE)
+attr(pred, "decision.values")[1:6,]
+
+# visualize (classes by color, SV by crosses):
+plot(cmdscale(dist(slpDataFrame[,-7])),
+     col = as.integer(slpDataFrame[,7]),xlab="normalized X", ylab = "$ change",
+     pch = c("o","+")[1:150 %in% model1$index + 1])
+legend('bottomleft',c('data','prediction'),pch=c('0','+'))
+grid()
+
+     
+```
+
+
+# train and test set:
+
+```{r}
+pctTrain=0.70
+nObs = length(x[,1])
+nTrain = round(pctTrain*nObs,0)
+TrainSetIndex = 1:nTrain
+
+# or ?
+#TrainSetIndex = sample(1:nObs, nTrain)
+```
+
+## set up training set, test set
+
+```{r}
+# first the training set
+
+XtrainSet = slpDataFrame[TrainSetIndex,-7]
+YtrainSet = slpDataFrame$change[TrainSetIndex]
+```
+
+## get the model from training set.. 
+
+```{r}
+model2 <- svm(XtrainSet, YtrainSet) 
+
+print(model2)
+summary(model2)
+```
+
+## now the test set.. 
+
+```{r}
+XtestSet = slpDataFrame[(nTrain:nObs),-7]
+YtestSet = slpDataFrame$change[nTrain:nObs]
+```
+
+## and evaluate with the test data
+
+```{r}
+pred2 <- predict(model2, XtestSet)
+# And the accuracy..
+
+table(pred2, YtestSet)
+```
+
+## tune
+
+```{r}
+stockTuned <- tune.svm(XtrainSet, YtrainSet, gamma = 2^(-1:1), cost = 2^(-1:4))
+
+summary(stockTuned)
+plot(stockTuned)
+```
+
+```{r}
+#use optimized parameters... 
+model3 <- svm(XtrainSet, YtrainSet, gamma=0.5, cost=4 ) 
+
+print(model3)
+summary(model3)
+```
+
+```{r}
+
+
+pred3 <- predict(model3, XtestSet)
+# And the accuracy..
+
+table(pred3, YtestSet)
+
+```
+# SVM assignment
+
+## complete an rmarkdown file on the stock you selected.   
+  You will turn in the URL for your github accout that has the repo for this assignment.
+
+### Identify the stock you use for this assignment.  
+  Why did you choose this particular stock?  
+
+<!--   Include in your final report a graph of the stock closing price over the period 20 Jan 2018 to 13 Sept 2019.  Include the .csv file in your repo for the stock you selected.  !-->
+
+### Use this template to get the SVM:  
+
+  1. Training and Test sets:    
+<!--    What percent of the stock data did you use for the training set?  How did you select the training set size?  
+    Did you select the training set to be the chronological first data observations, and the test set to be the following observations, or did you choose to randomly sample the stock data to get the training set and use the remaining observations for the test set?  Justification for your choice? !-->  
+    
+  2. How well did the SVM do?  
+<!-- show the table of predicted vs truth for the whole data set, and then the same table for predicted vs actual results for just the test set.  !-->
+
+  3. Tune the algorithm- i.e. find optimal gamma and cost values.  <!--Use these valuse to recompute the table of predicted vs actual results for the test set. !-->
+
+### Evaluate SVM performance     
+
+  1. Did you exmine using other than the 'open', 'low', 'high', 'close' prices and volume as predictors? 
+  <!-- do you have any evidence that some particular set of the explanatory variables can improove predictions? !-->
+  
+  2. Use the SVM you developed to predict stock moves on 16 - 20 Sept. 2019.  Compute the ROI assuming the SVM identifies an opportunity, (for example use around $1000 on each of the SVM predictions)
+<!-- There are 5 days available for prediction; if the daily prediction was 'U' buy the stock, then cash out when/if price increases within 5 days. If the daily predictions is 'D', sell the shock short and cash out within 5 days.  If the prediction is E, no investment.  Include your ROI results !-->  
+  
+  3.  Would you put your own $$ in this SVM?  
+    
+  
